@@ -1,1 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HFCU Operations Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --navy:#0b2341;
+      --navy-2:#12345f;
+      --gold:#caa86a;
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --text:#102033;
+      --muted:#637487;
+      --border:#d7e0ea;
+      --ok:#167c53;
+      --warn:#b56a00;
+      --bad:#c73636;
+      --info:#1f5fbf;
+      --radius:16px;
+      --shadow:0 8px 24px rgba(11,35,65,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .app{
+      display:grid;
+      grid-template-columns:260px 1fr;
+      min-height:100vh;
+    }
+    .sidebar{
+      background:linear-gradient(180deg,var(--navy),#0e2a50);
+      color:#fff;
+      padding:20px 16px;
+      position:sticky;
+      top:0;
+      height:100vh;
+    }
+    .brand{
+      font-size:22px;
+      font-weight:700;
+      margin:0 0 18px;
+    }
+    .sub{
+      color:rgba(255,255,255,.75);
+      font-size:13px;
+      margin-bottom:18px;
+    }
+    .nav button{
+      width:100%;
+      text-align:left;
+      background:transparent;
+      color:#fff;
+      border:1px solid transparent;
+      padding:12px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      margin-bottom:8px;
+      font-size:14px;
+    }
+    .nav button.active,.nav button:hover{
+      background:rgba(255,255,255,.08);
+      border-color:rgba(255,255,255,.12);
+    }
+    .main{
+      padding:22px;
+      overflow:auto;
+    }
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+      flex-wrap:wrap;
+    }
+    .title{
+      font-size:28px;
+      font-weight:700;
+      color:var(--navy);
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    button.btn{
+      background:var(--navy);
+      color:#fff;
+      border:none;
+      border-radius:12px;
+      padding:11px 14px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    button.btn.secondary{
+      background:#fff;
+      color:var(--navy);
+      border:1px solid var(--border);
+    }
+    button.btn.gold{
+      background:var(--gold);
+      color:#17263a;
+    }
+    .panel{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(12,1fr);
+      gap:16px;
+    }
+    .stat{
+      grid-column:span 3;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .stat .v{
+      font-size:30px;
+      font-weight:700;
+      margin-top:8px;
+      color:var(--navy);
+    }
+    .section-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin:20px 0 10px;
+    }
+    .section-title h2{
+      margin:0;
+      font-size:20px;
+      color:var(--navy);
+    }
+    .section-title .hint{
+      color:var(--muted);
+      font-size:13px;
+    }
+    .cards{
+      display:grid;
+      gap:12px;
+    }
+    .card{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 16px;
+      box-shadow:var(--shadow);
+    }
+    .card-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .card-title{
+      font-size:17px;
+      font-weight:700;
+      color:var(--navy);
+      margin-bottom:6px;
+    }
+    .meta{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:5px 9px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+    .severity-critical{background:#fde8e8;color:#8d1717;border-color:#f5c1c1}
+    .severity-high{background:#fff0df;color:#9f4e00;border-color:#f1d0ab}
+    .severity-medium{background:#eef4ff;color:#174b98;border-color:#cadcff}
+    .severity-low{background:#ebfaf3;color:#0a6d47;border-color:#bce7d1}
+    .status-investigating,.status-identified,.status-monitoring,.status-resolved,.status-closed,.status-active,.status-planned,.status-complete,.status-review{
+      background:#f4f7fb;color:#32516f;border-color:#d8e3ee
+    }
+    .card-body{
+      margin-top:12px;
+      color:#24374b;
+      line-height:1.45;
+    }
+    .row-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    .row-actions button{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      cursor:pointer;
+      font-weight:700;
+      color:var(--navy);
+    }
+    .row-actions button.primary{
+      background:var(--navy);
+      color:#fff;
+      border-color:var(--navy);
+    }
+    .hidden{display:none!important}
+    .empty{
+      padding:18px;
+      text-align:center;
+      color:var(--muted);
+      border:1px dashed var(--border);
+      border-radius:14px;
+      background:#fbfdff;
+    }
+    .table{
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+      border-radius:14px;
+      overflow:hidden;
+    }
+    .table th,.table td{
+      border-bottom:1px solid var(--border);
+      padding:12px;
+      text-align:left;
+      font-size:14px;
+    }
+    .table th{
+      background:#f8fbff;
+      color:var(--navy);
+    }
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(5,20,40,.45);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:2000;
+    }
+    .modal.open{display:flex}
+    .modal-card{
+      width:min(900px,100%);
+      background:#fff;
+      border-radius:18px;
+      box-shadow:0 30px 70px rgba(10,25,50,.25);
+      overflow:hidden;
+    }
+    .modal-head{
+      background:var(--navy);
+      color:#fff;
+      padding:16px 18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .modal-head h3{margin:0;font-size:20px}
+    .modal-body{padding:18px}
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .field.full{grid-column:1/-1}
+    label{font-size:13px;font-weight:700;color:var(--navy)}
+    input,select,textarea{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:11px 12px;
+      font:inherit;
+      background:#fff;
+      color:var(--text);
+    }
+    textarea{min-height:110px;resize:vertical}
+    .modal-foot{
+      padding:0 18px 18px;
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .search{
+      max-width:340px;
+      width:100%;
+    }
+    .small{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .yes{color:var(--ok);font-weight:700}
+    .no{color:var(--bad);font-weight:700}
+    @media (max-width:1100px){
+      .app{grid-template-columns:1fr}
+      .sidebar{
+        position:static;
+        height:auto;
+      }
+      .stat{grid-column:span 6}
+    }
+    @media (max-width:760px){
+      .form-grid{grid-template-columns:1fr}
+      .stat{grid-column:span 12}
+      .main{padding:16px}
+      .title{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">HFCU Operations</div>
+    <div class="sub">Admin console</div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="title" id="pageTitle">Snapshot</div>
+        <div class="small" id="pageSub">Operational command center</div>
+      </div>
+      <div class="actions">
+        <button class="btn gold" id="declareImpactBtn">Declare Service Impact</button>
+        <button class="btn secondary" id="addMaintenanceBtn">Add Maintenance</button>
+        <button class="btn secondary" id="addEnhancementBtn">Add Enhancement</button>
+        <button class="btn secondary" id="addReleaseBtn">Add Release</button>
+        <button class="btn secondary" id="addSystemBtn">Add System</button>
+      </div>
+    </div>
+
+    <section id="view-snapshot" class="view"></section>
+    <section id="view-service-impacts" class="view hidden"></section>
+    <section id="view-maintenance" class="view hidden"></section>
+    <section id="view-enhancements" class="view hidden"></section>
+    <section id="view-releases" class="view hidden"></section>
+    <section id="view-systems" class="view hidden"></section>
+    <section id="view-settings" class="view hidden"></section>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitle">Edit</h3>
+      <button class="btn secondary" id="closeModalBtn">Close</button>
+    </div>
+    <div class="modal-body">
+      <form id="entityForm">
+        <input type="hidden" id="entityType">
+        <input type="hidden" id="entityId">
+        <div class="form-grid" id="formFields"></div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn secondary" id="deleteBtn" type="button">Delete</button>
+      <button class="btn" id="saveBtn" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://tqshcfqxypyppaykwdaf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc2hjZnF4eXB5cHBheWt3ZGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjY1MzYsImV4cCI6MjA4OTI0MjUzNn0.h7_C_oXZ6eKzbnMrInWqbJ635m-eQvD4zZzUVPQuxZsY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const NAV = [
+  { id:"snapshot", label:"Snapshot" },
+  { id:"service-impacts", label:"Service Impacts" },
+  { id:"maintenance", label:"Maintenance" },
+  { id:"enhancements", label:"Enhancements" },
+  { id:"releases", label:"Releases" },
+  { id:"systems", label:"Systems" },
+  { id:"settings", label:"Settings" }
+];
+
+const DB = {
+  systems: [],
+  service_impacts: [],
+  maintenance: [],
+  enhancements: [],
+  releases: []
+};
+
+let currentView = "snapshot";
+let searchTerms = {
+  "service-impacts":"",
+  maintenance:"",
+  enhancements:"",
+  releases:"",
+  systems:""
+};
+
+const impactTypes = [
+  "Outage","Degraded Performance","Feature Failure","Vendor Issue",
+  "Operational Disruption","Security Review","Fraud Review",
+  "Member Communication Only","Scheduled Maintenance Overrun"
+];
+const severities = ["Critical","High","Medium","Low"];
+const impactStatuses = ["Investigating","Identified","Monitoring","Resolved","Closed"];
+const audiences = ["Members","Staff","Both"];
+const maintenanceStatuses = ["Planned","Active","Monitoring","Complete"];
+const releaseStatuses = ["Planned","In Progress","Complete","Archived"];
+const enhancementStages = ["Intake","Review","Approved","Planned","In Progress","Complete","Archived"];
+
+function uid(prefix="id"){
+  return `${prefix}_${Math.random().toString(36).slice(2,10)}`;
+}
+function fmtDate(v){
+  if(!v) return "Not set";
+  try { return new Date(v).toLocaleString(); } catch { return v; }
+}
+function isActive(item){
+  if(!item) return false;
+  if(item.deactivate_at && new Date(item.deactivate_at) <= new Date()) return false;
+  return true;
+}
+function severityRank(v){
+  return {Critical:1,High:2,Medium:3,Low:4}[v] || 99;
+}
+function impactStatusRank(v){
+  return {Investigating:1,Identified:2,Monitoring:3,Resolved:4,Closed:5}[v] || 99;
+}
+function byUpdatedDesc(a,b){
+  const ad = new Date(a.updated_at || a.created_at || 0).getTime();
+  const bd = new Date(b.updated_at || b.created_at || 0).getTime();
+  return bd - ad;
+}
+function sortImpacts(items){
+  return [...items].sort((a,b) => {
+    const s = severityRank(a.severity) - severityRank(b.severity);
+    if(s !== 0) return s;
+    const st = impactStatusRank(a.status) - impactStatusRank(b.status);
+    if(st !== 0) return st;
+    return byUpdatedDesc(a,b);
+  });
+}
+function systemOptions(){
+  return DB.systems.map(s => ({ value:s.name, label:s.name }));
+}
+function badgeForSeverity(v){
+  const c = (v || "").toLowerCase();
+  return `<span class="badge severity-${c}">${v || "Unknown"}</span>`;
+}
+function badgeForStatus(v){
+  const c = (v || "").toLowerCase().replace(/\s+/g,"-");
+  return `<span class="badge status-${c}">${v || "Unknown"}</span>`;
+}
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function activeCounts(){
+  return {
+    impacts: DB.service_impacts.filter(isActive).filter(x => !["Resolved","Closed"].includes(x.status)).length,
+    maintenance: DB.maintenance.filter(isActive).filter(x => x.status !== "Complete").length,
+    enhancements: DB.enhancements.filter(isActive).filter(x => x.stage !== "Archived" && x.stage !== "Complete").length,
+    releases: DB.releases.filter(isActive).filter(x => x.status !== "Archived").length
+  };
+}
+
+function renderNav(){
+  const nav = document.getElementById("nav");
+  nav.innerHTML = NAV.map(n => `
+    <button class="${n.id === currentView ? "active" : ""}" onclick="setView('${n.id}')">${n.label}</button>
+  `).join("");
+}
+function setView(viewId){
+  currentView = viewId;
+  renderNav();
+  document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+  document.getElementById(`view-${viewId}`).classList.remove("hidden");
+  const titleMap = {
+    "snapshot":"Snapshot",
+    "service-impacts":"Service Impacts",
+    "maintenance":"Maintenance",
+    "enhancements":"Enhancements",
+    "releases":"Releases",
+    "systems":"Systems",
+    "settings":"Settings"
+  };
+  document.getElementById("pageTitle").textContent = titleMap[viewId];
+  document.getElementById("pageSub").textContent = {
+    "snapshot":"Live operational summary",
+    "service-impacts":"Active and historical service events",
+    "maintenance":"Planned and active maintenance work",
+    "enhancements":"Improvement pipeline",
+    "releases":"Delivery and release tracking",
+    "systems":"System inventory and ownership context",
+    "settings":"Minimal runtime notes"
+  }[viewId];
+}
+
+async function loadTable(table, order="updated_at.desc"){
+  const pieces = order.split(".");
+  const column = pieces[0];
+  const ascending = pieces[1] === "asc";
+  const { data, error } = await sb.from(table).select("*").order(column,{ ascending });
+  if(error){
+    console.error(`Load failed for ${table}`, error);
+    return [];
+  }
+  return data || [];
+}
+
+async function loadData(){
+  const [systems, impacts, maintenance, enhancements, releases] = await Promise.all([
+    loadTable("systems", "name.asc"),
+    loadTable("service_impacts", "updated_at.desc"),
+    loadTable("maintenance", "updated_at.desc"),
+    loadTable("enhancements", "updated_at.desc"),
+    loadTable("releases", "updated_at.desc")
+  ]);
+  DB.systems = systems;
+  DB.service_impacts = impacts;
+  DB.maintenance = maintenance;
+  DB.enhancements = enhancements;
+  DB.releases = releases;
+  renderAll();
+}
+
+function renderAll(){
+  renderNav();
+  renderSnapshot();
+  renderServiceImpacts();
+  renderMaintenance();
+  renderEnhancements();
+  renderReleases();
+  renderSystems();
+  renderSettings();
+  setView(currentView);
+}
+
+function renderSnapshot(){
+  const counts = activeCounts();
+  const activeImpacts = sortImpacts(DB.service_impacts.filter(isActive).filter(x => !["Resolved","Closed"].includes(x.status))).slice(0,5);
+  const activeMaintenance = [...DB.maintenance.filter(isActive).filter(x => x.status !== "Complete")].sort(byUpdatedDesc).slice(0,5);
+  const activeEnhancements = [...DB.enhancements.filter(isActive).filter(x => !["Archived","Complete"].includes(x.stage))].sort(byUpdatedDesc).slice(0,5);
+  const activeReleases = [...DB.releases.filter(isActive).filter(x => x.status !== "Archived")].sort(byUpdatedDesc).slice(0,5);
+
+  document.getElementById("view-snapshot").innerHTML = `
+    <div class="grid">
+      <div class="stat"><div class="k">Active Service Impacts</div><div class="v">${counts.impacts}</div></div>
+      <div class="stat"><div class="k">Active Maintenance</div><div class="v">${counts.maintenance}</div></div>
+      <div class="stat"><div class="k">Open Enhancements</div><div class="v">${counts.enhancements}</div></div>
+      <div class="stat"><div class="k">Open Releases</div><div class="v">${counts.releases}</div></div>
+    </div>
+
+    ${snapSection("Service Impacts", activeImpacts.map(impactCard).join("") || empty("No active service impacts."))}
+    ${snapSection("Maintenance", activeMaintenance.map(maintenanceCard).join("") || empty("No active maintenance items."))}
+    ${snapSection("Enhancements", activeEnhancements.map(enhancementCard).join("") || empty("No active enhancements."))}
+    ${snapSection("Releases", activeReleases.map(releaseCard).join("") || empty("No active releases."))}
+  `;
+}
+function snapSection(title, body){
+  return `
+    <div class="section-title"><h2>${title}</h2></div>
+    <div class="cards">${body}</div>
+  `;
+}
+function empty(msg){
+  return `<div class="empty">${msg}</div>`;
+}
+
+function renderToolbar(viewKey, placeholder="Search"){
+  return `
+    <div class="toolbar">
+      <input class="search" placeholder="${placeholder}" value="${esc(searchTerms[viewKey] || "")}" oninput="setSearch('${viewKey}', this.value)">
+    </div>
+  `;
+}
+function setSearch(key, value){
+  searchTerms[key] = value || "";
+  renderAll();
+}
+function matchesSearch(item, fields, key){
+  const q = (searchTerms[key] || "").trim().toLowerCase();
+  if(!q) return true;
+  return fields.some(f => String(item[f] || "").toLowerCase().includes(q));
+}
+
+function renderServiceImpacts(){
+  const active = sortImpacts(DB.service_impacts.filter(i => isActive(i)).filter(i => !["Resolved","Closed"].includes(i.status)).filter(i => matchesSearch(i,["title","system","impact_type","severity","owner","member_impact"],"service-impacts")));
+  const historical = sortImpacts(DB.service_impacts.filter(i => !isActive(i) || ["Resolved","Closed"].includes(i.status)).filter(i => matchesSearch(i,["title","system","impact_type","severity","owner","member_impact"],"service-impacts")));
+
+  document.getElementById("view-service-impacts").innerHTML = `
+    ${renderToolbar("service-impacts","Search service impacts")}
+    <div class="section-title"><h2>Active</h2><div class="hint">${active.length} shown</div></div>
+    <div class="cards">${active.map(impactCard).join("") || empty("No active service impacts.")}</div>
+    <div class="section-title"><h2>Historical</h2><div class="hint">${historical.length} shown</div></div>
+    <div class="cards">${historical.map(impactCard).join("") || empty("No historical service impacts.")}</div>
+  `;
+}
+function impactCard(item){
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            <span>${esc(item.impact_type || "")}</span>
+            <span>Owner: ${esc(item.owner || "Unassigned")}</span>
+            <span>Updated: ${esc(fmtDate(item.updated_at))}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${badgeForSeverity(item.severity)}
+          ${badgeForStatus(item.status)}
+        </div>
+      </div>
+      <div class="card-body">
+        <div><strong>Audience:</strong> ${esc(item.audience || "Not set")}</div>
+        <div><strong>Member Impact:</strong> ${esc(item.member_impact || "Not provided")}</div>
+        ${item.internal_impact ? `<div><strong>Internal Impact:</strong> ${esc(item.internal_impact)}</div>` : ""}
+        ${item.summary ? `<div><strong>Summary:</strong> ${esc(item.summary)}</div>` : ""}
+        <div><strong>External Notice:</strong> ${item.publish_externally ? `<span class="yes">Yes</span>` : `<span class="no">No</span>`}</div>
+        ${item.deactivate_at ? `<div><strong>Deactivate On:</strong> ${esc(fmtDate(item.deactivate_at))}</div>` : ""}
+      </div>
+      <div class="row-actions">
+        <button class="primary" onclick="openEditor('service_impacts','${item.id}')">Edit</button>
+        <button onclick="quickSetImpactStatus('${item.id}','Monitoring')">Monitoring</button>
+        <button onclick="quickSetImpactStatus('${item.id}','Resolved')">Resolved</button>
+        <button onclick="quickSetImpactStatus('${item.id}','Closed')">Closed</button>
+      </div>
+    </div>
+  `;
+}
+
+async function quickSetImpactStatus(id,status){
+  const patch = { status, updated_at:new Date().toISOString() };
+  if(status === "Resolved" || status === "Closed") patch.resolved_at = new Date().toISOString();
+  const { error } = await sb.from("service_impacts").update(patch).eq("id",id);
+  if(error){ alert(error.message); return; }
+  await loadData();
+}
+
+function renderMaintenance(){
+  const active = [...DB.maintenance.filter(i => isActive(i)).filter(i => i.status !== "Complete").filter(i => matchesSearch(i,["title","system","owner","summary"],"maintenance"))].sort(byUpdatedDesc);
+  const historical = [...DB.maintenance.filter(i => !isActive(i) || i.status === "Complete").filter(i => matchesSearch(i,["title","system","owner","summary"],"maintenance"))].sort(byUpdatedDesc);
+
+  document.getElementById("view-maintenance").innerHTML = `
+    ${renderToolbar("maintenance","Search maintenance")}
+    <div class="section-title"><h2>Active</h2><div class="hint">${active.length} shown</div></div>
+    <div class="cards">${active.map(maintenanceCard).join("") || empty("No active maintenance.")}</div>
+    <div class="section-title"><h2>Historical</h2><div class="hint">${historical.length} shown</div></div>
+    <div class="cards">${historical.map(maintenanceCard).join("") || empty("No historical maintenance.")}</div>
+  `;
+}
+function maintenanceCard(item){
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            <span>Owner: ${esc(item.owner || "Unassigned")}</span>
+            ${item.start_at ? `<span>Start: ${esc(fmtDate(item.start_at))}</span>` : ""}
+            ${item.end_at ? `<span>End: ${esc(fmtDate(item.end_at))}</span>` : ""}
+          </div>
+        </div>
+        ${badgeForStatus(item.status)}
+      </div>
+      <div class="card-body">
+        ${esc(item.summary || "No summary provided")}
+        ${item.deactivate_at ? `<div><strong>Deactivate On:</strong> ${esc(fmtDate(item.deactivate_at))}</div>` : ""}
+      </div>
+      <div class="row-actions">
+        <button class="primary" onclick="openEditor('maintenance','${item.id}')">Edit</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEnhancements(){
+  const active = [...DB.enhancements.filter(i => isActive(i)).filter(i => !["Archived","Complete"].includes(i.stage)).filter(i => matchesSearch(i,["title","system","dept","sum","timing"],"enhancements"))].sort(byUpdatedDesc);
+  const historical = [...DB.enhancements.filter(i => !isActive(i) || ["Archived","Complete"].includes(i.stage)).filter(i => matchesSearch(i,["title","system","dept","sum","timing"],"enhancements"))].sort(byUpdatedDesc);
+
+  document.getElementById("view-enhancements").innerHTML = `
+    ${renderToolbar("enhancements","Search enhancements")}
+    <div class="section-title"><h2>Open</h2><div class="hint">${active.length} shown</div></div>
+    <div class="cards">${active.map(enhancementCard).join("") || empty("No open enhancements.")}</div>
+    <div class="section-title"><h2>Historical</h2><div class="hint">${historical.length} shown</div></div>
+    <div class="cards">${historical.map(enhancementCard).join("") || empty("No historical enhancements.")}</div>
+  `;
+}
+function enhancementCard(item){
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            <span>${esc(item.dept || "")}</span>
+            <span>${esc(item.aud || "")}</span>
+            ${item.timing ? `<span>${esc(item.timing)}</span>` : ""}
+          </div>
+        </div>
+        ${badgeForStatus(item.stage)}
+      </div>
+      <div class="card-body">
+        ${esc(item.sum || "No summary provided")}
+        ${item.impact ? `<div><strong>Impact:</strong> ${esc(item.impact)}</div>` : ""}
+        ${item.deactivate_at ? `<div><strong>Deactivate On:</strong> ${esc(fmtDate(item.deactivate_at))}</div>` : ""}
+      </div>
+      <div class="row-actions">
+        <button class="primary" onclick="openEditor('enhancements','${item.id}')">Edit</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderReleases(){
+  const active = [...DB.releases.filter(i => isActive(i)).filter(i => i.status !== "Archived").filter(i => matchesSearch(i,["title","system","status","summary"],"releases"))].sort(byUpdatedDesc);
+  const historical = [...DB.releases.filter(i => !isActive(i) || i.status === "Archived").filter(i => matchesSearch(i,["title","system","status","summary"],"releases"))].sort(byUpdatedDesc);
+
+  document.getElementById("view-releases").innerHTML = `
+    ${renderToolbar("releases","Search releases")}
+    <div class="section-title"><h2>Open</h2><div class="hint">${active.length} shown</div></div>
+    <div class="cards">${active.map(releaseCard).join("") || empty("No open releases.")}</div>
+    <div class="section-title"><h2>Historical</h2><div class="hint">${historical.length} shown</div></div>
+    <div class="cards">${historical.map(releaseCard).join("") || empty("No historical releases.")}</div>
+  `;
+}
+function releaseCard(item){
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            ${item.target_date ? `<span>Target: ${esc(fmtDate(item.target_date))}</span>` : ""}
+            <span>Updated: ${esc(fmtDate(item.updated_at))}</span>
+          </div>
+        </div>
+        ${badgeForStatus(item.status)}
+      </div>
+      <div class="card-body">
+        ${esc(item.summary || "No summary provided")}
+        ${item.deactivate_at ? `<div><strong>Deactivate On:</strong> ${esc(fmtDate(item.deactivate_at))}</div>` : ""}
+      </div>
+      <div class="row-actions">
+        <button class="primary" onclick="openEditor('releases','${item.id}')">Edit</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSystems(){
+  const rows = [...DB.systems].filter(i => matchesSearch(i,["name","status","note"],"systems"));
+  document.getElementById("view-systems").innerHTML = `
+    ${renderToolbar("systems","Search systems")}
+    <div class="panel">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>Status</th>
+            <th>Note</th>
+            <th>Updated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(s => `
+            <tr>
+              <td>${esc(s.name)}</td>
+              <td>${esc(s.status || "Active")}</td>
+              <td>${esc(s.note || "")}</td>
+              <td>${esc(fmtDate(s.updated_at))}</td>
+              <td><button class="btn secondary" onclick="openEditor('systems','${s.id}')">Edit</button></td>
+            </tr>
+          `).join("") || `<tr><td colspan="5"><div class="empty">No systems found.</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderSettings(){
+  document.getElementById("view-settings").innerHTML = `
+    <div class="panel">
+      <h2 style="margin-top:0;color:var(--navy)">Deployment reminders</h2>
+      <div class="small">This clean version assumes Supabase tables from schema.sql exist and Row Level Security is configured appropriately. Replace the Supabase URL and anon key in this file, the snapshot file, and the widget file before deployment.</div>
+      <div class="small" style="margin-top:12px">Primary workflow: Declare Service Impact. Direct Add Issue and Add Notice are intentionally gone from this version.</div>
+    </div>
+  `;
+}
+
+function schemaFor(type){
+  if(type === "service_impacts"){
+    return [
+      { name:"system", label:"System", type:"select", required:true, options:systemOptions() },
+      { name:"title", label:"Headline", type:"text", required:true },
+      { name:"impact_type", label:"Impact Type", type:"select", required:true, options:impactTypes.map(v => ({value:v,label:v})) },
+      { name:"severity", label:"Severity", type:"select", required:true, options:severities.map(v => ({value:v,label:v})) },
+      { name:"status", label:"Status", type:"select", required:true, options:impactStatuses.map(v => ({value:v,label:v})) },
+      { name:"owner", label:"Owner", type:"text" },
+      { name:"audience", label:"Audience", type:"select", required:true, options:audiences.map(v => ({value:v,label:v})) },
+      { name:"publish_externally", label:"Publish External Notice", type:"checkbox" },
+      { name:"started_at", label:"Started At", type:"datetime-local" },
+      { name:"deactivate_at", label:"Deactivate On", type:"datetime-local" },
+      { name:"member_impact", label:"Member Impact", type:"textarea", full:true, required:true },
+      { name:"internal_impact", label:"Internal Impact", type:"textarea", full:true },
+      { name:"summary", label:"Summary", type:"textarea", full:true },
+      { name:"source_type", label:"Source Type", type:"select", options:["Manual Summary","Zoom Meeting Summary","Vendor Email","Internal Email Thread","Call Notes"].map(v => ({value:v,label:v})) },
+      { name:"source_detail", label:"Source Detail", type:"textarea", full:true }
+    ];
+  }
+  if(type === "maintenance"){
+    return [
+      { name:"system", label:"System", type:"select", required:true, options:systemOptions() },
+      { name:"title", label:"Title", type:"text", required:true },
+      { name:"status", label:"Status", type:"select", required:true, options:maintenanceStatuses.map(v => ({value:v,label:v})) },
+      { name:"owner", label:"Owner", type:"text" },
+      { name:"start_at", label:"Start At", type:"datetime-local" },
+      { name:"end_at", label:"End At", type:"datetime-local" },
+      { name:"deactivate_at", label:"Deactivate On", type:"datetime-local" },
+      { name:"summary", label:"Summary", type:"textarea", full:true, required:true }
+    ];
+  }
+  if(type === "enhancements"){
+    return [
+      { name:"system", label:"System", type:"select", required:true, options:systemOptions() },
+      { name:"title", label:"Title", type:"text", required:true },
+      { name:"stage", label:"Stage", type:"select", required:true, options:enhancementStages.map(v => ({value:v,label:v})) },
+      { name:"dept", label:"Department", type:"text" },
+      { name:"aud", label:"Audience", type:"text" },
+      { name:"timing", label:"Timing", type:"text" },
+      { name:"deactivate_at", label:"Deactivate On", type:"datetime-local" },
+      { name:"sum", label:"Summary", type:"textarea", full:true, required:true },
+      { name:"impact", label:"Impact", type:"textarea", full:true }
+    ];
+  }
+  if(type === "releases"){
+    return [
+      { name:"system", label:"System", type:"select", required:true, options:systemOptions() },
+      { name:"title", label:"Title", type:"text", required:true },
+      { name:"status", label:"Status", type:"select", required:true, options:releaseStatuses.map(v => ({value:v,label:v})) },
+      { name:"target_date", label:"Target Date", type:"datetime-local" },
+      { name:"deactivate_at", label:"Deactivate On", type:"datetime-local" },
+      { name:"summary", label:"Summary", type:"textarea", full:true, required:true }
+    ];
+  }
+  if(type === "systems"){
+    return [
+      { name:"name", label:"System Name", type:"text", required:true },
+      { name:"status", label:"Status", type:"select", required:true, options:["Active","Inactive","Deprecated"].map(v => ({value:v,label:v})) },
+      { name:"icon", label:"Icon", type:"text" },
+      { name:"note", label:"Note", type:"textarea", full:true }
+    ];
+  }
+  return [];
+}
+
+function normalizeForInput(value, type){
+  if(!value) return "";
+  if(type === "datetime-local"){
+    const d = new Date(value);
+    if(Number.isNaN(d.getTime())) return "";
+    const pad = n => String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  return value;
+}
+
+window.openEditor = function(type, id=null){
+  const modal = document.getElementById("modal");
+  const formFields = document.getElementById("formFields");
+  const fields = schemaFor(type);
+  const table = DB[type] || [];
+  const row = id ? table.find(x => x.id === id) : null;
+
+  document.getElementById("entityType").value = type;
+  document.getElementById("entityId").value = row?.id || "";
+  document.getElementById("modalTitle").textContent = `${row ? "Edit" : "New"} ${type.replace("_"," ").replace(/\b\w/g,m=>m.toUpperCase())}`;
+  document.getElementById("deleteBtn").style.display = row ? "inline-flex" : "none";
+
+  formFields.innerHTML = fields.map(f => {
+    const val = row ? row[f.name] : "";
+    if(f.type === "textarea"){
+      return `
+        <div class="field ${f.full ? "full" : ""}">
+          <label>${f.label}${f.required ? " *" : ""}</label>
+          <textarea id="f_${f.name}" ${f.required ? "required" : ""}>${esc(normalizeForInput(val, f.type))}</textarea>
+        </div>
+      `;
+    }
+    if(f.type === "select"){
+      return `
+        <div class="field ${f.full ? "full" : ""}">
+          <label>${f.label}${f.required ? " *" : ""}</label>
+          <select id="f_${f.name}" ${f.required ? "required" : ""}>
+            <option value="">Select...</option>
+            ${f.options.map(o => `<option value="${esc(o.value)}" ${String(val||"") === String(o.value) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}
+          </select>
+        </div>
+      `;
+    }
+    if(f.type === "checkbox"){
+      return `
+        <div class="field">
+          <label>${f.label}</label>
+          <select id="f_${f.name}">
+            <option value="false" ${val ? "" : "selected"}>No</option>
+            <option value="true" ${val ? "selected" : ""}>Yes</option>
+          </select>
+        </div>
+      `;
+    }
+    return `
+      <div class="field ${f.full ? "full" : ""}">
+        <label>${f.label}${f.required ? " *" : ""}</label>
+        <input id="f_${f.name}" type="${f.type}" value="${esc(normalizeForInput(val, f.type))}" ${f.required ? "required" : ""}>
+      </div>
+    `;
+  }).join("");
+
+  modal.classList.add("open");
+};
+
+function closeModal(){
+  document.getElementById("modal").classList.remove("open");
+}
+
+async function saveEntity(){
+  const type = document.getElementById("entityType").value;
+  const id = document.getElementById("entityId").value || uid(type.slice(0,4));
+  const fields = schemaFor(type);
+  const payload = { id };
+
+  for(const f of fields){
+    let value = document.getElementById(`f_${f.name}`).value;
+    if(f.type === "checkbox") value = value === "true";
+    if(f.type === "datetime-local" && value) value = new Date(value).toISOString();
+    if(f.required && (value === "" || value == null)){
+      alert(`${f.label} is required.`);
+      return;
+    }
+    payload[f.name] = value === "" ? null : value;
+  }
+
+  const now = new Date().toISOString();
+  payload.updated_at = now;
+  if(!document.getElementById("entityId").value) payload.created_at = now;
+  if(type === "service_impacts" && !payload.started_at) payload.started_at = now;
+  if(type === "service_impacts" && ["Resolved","Closed"].includes(payload.status)) payload.resolved_at = now;
+
+  const { error } = await sb.from(type).upsert(payload);
+  if(error){
+    alert(error.message);
+    return;
+  }
+  closeModal();
+  await loadData();
+}
+
+async function deleteEntity(){
+  const type = document.getElementById("entityType").value;
+  const id = document.getElementById("entityId").value;
+  if(!id) return;
+  if(!confirm("Delete this record?")) return;
+  const { error } = await sb.from(type).delete().eq("id",id);
+  if(error){
+    alert(error.message);
+    return;
+  }
+  closeModal();
+  await loadData();
+}
+
+document.getElementById("declareImpactBtn").onclick = () => openEditor("service_impacts");
+document.getElementById("addMaintenanceBtn").onclick = () => openEditor("maintenance");
+document.getElementById("addEnhancementBtn").onclick = () => openEditor("enhancements");
+document.getElementById("addReleaseBtn").onclick = () => openEditor("releases");
+document.getElementById("addSystemBtn").onclick = () => openEditor("systems");
+document.getElementById("saveBtn").onclick = saveEntity;
+document.getElementById("deleteBtn").onclick = deleteEntity;
+document.getElementById("closeModalBtn").onclick = closeModal;
+document.getElementById("modal").addEventListener("click", e => {
+  if(e.target.id === "modal") closeModal();
+});
+
+renderNav();
+setView("snapshot");
+loadData();
+</script>
+</body>
+</html>
 
