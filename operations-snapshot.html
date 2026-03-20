@@ -1,1 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HFCU Operations Snapshot</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --navy:#0b2341;
+      --gold:#caa86a;
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --text:#102033;
+      --muted:#637487;
+      --border:#d7e0ea;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      padding:22px;
+    }
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:16px;
+      flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+    h1{
+      margin:0;
+      color:var(--navy);
+      font-size:30px;
+    }
+    .small{color:var(--muted);font-size:13px}
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:14px;
+      margin-bottom:18px;
+    }
+    .stat,.card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 8px 24px rgba(11,35,65,.08);
+    }
+    .stat .k{font-size:12px;color:var(--muted);text-transform:uppercase}
+    .stat .v{font-size:28px;font-weight:700;color:var(--navy);margin-top:8px}
+    .section-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin:18px 0 10px;
+    }
+    .section-title h2{margin:0;color:var(--navy);font-size:20px}
+    .cards{display:grid;gap:12px}
+    .card-title{font-size:17px;font-weight:700;color:var(--navy)}
+    .meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:6px}
+    .body{margin-top:10px;line-height:1.45}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:5px 9px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+    .severity-critical{background:#fde8e8;color:#8d1717;border-color:#f5c1c1}
+    .severity-high{background:#fff0df;color:#9f4e00;border-color:#f1d0ab}
+    .severity-medium{background:#eef4ff;color:#174b98;border-color:#cadcff}
+    .severity-low{background:#ebfaf3;color:#0a6d47;border-color:#bce7d1}
+    .status{background:#f4f7fb;color:#32516f;border-color:#d8e3ee}
+    .empty{
+      padding:18px;
+      text-align:center;
+      color:var(--muted);
+      border:1px dashed var(--border);
+      border-radius:14px;
+      background:#fbfdff;
+    }
+    @media (max-width:900px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+    }
+    @media (max-width:560px){
+      body{padding:14px}
+      .stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>HFCU Operations Snapshot</h1>
+      <div class="small">Read-only operational view</div>
+    </div>
+    <div class="small" id="updatedText">Loading...</div>
+  </div>
 
+  <div class="stats" id="stats"></div>
+
+  <div class="section-title"><h2>Service Impacts</h2></div>
+  <div class="cards" id="impacts"></div>
+
+  <div class="section-title"><h2>Maintenance</h2></div>
+  <div class="cards" id="maintenance"></div>
+
+  <div class="section-title"><h2>Enhancements</h2></div>
+  <div class="cards" id="enhancements"></div>
+
+  <div class="section-title"><h2>Releases</h2></div>
+  <div class="cards" id="releases"></div>
+
+<script>
+const SUPABASE_URL = "https://tqshcfqxypyppaykwdaf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc2hjZnF4eXB5cHBheWt3ZGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjY1MzYsImV4cCI6MjA4OTI0MjUzNn0.h7_C_oXZ6eKzbnMrInWqbJ635m-eQvD4zZzUVPQuxZsY";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isActive(item){
+  if(!item) return false;
+  if(item.deactivate_at && new Date(item.deactivate_at) <= new Date()) return false;
+  return true;
+}
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function fmtDate(v){
+  if(!v) return "Not set";
+  try { return new Date(v).toLocaleString(); } catch { return v; }
+}
+function severityRank(v){
+  return {Critical:1,High:2,Medium:3,Low:4}[v] || 99;
+}
+function impactStatusRank(v){
+  return {Investigating:1,Identified:2,Monitoring:3,Resolved:4,Closed:5}[v] || 99;
+}
+function sortImpacts(items){
+  return [...items].sort((a,b) => {
+    const s = severityRank(a.severity) - severityRank(b.severity);
+    if(s !== 0) return s;
+    const st = impactStatusRank(a.status) - impactStatusRank(b.status);
+    if(st !== 0) return st;
+    return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+  });
+}
+function badgeSeverity(v){
+  const c = (v || "").toLowerCase();
+  return `<span class="badge severity-${c}">${esc(v || "Unknown")}</span>`;
+}
+function badgeStatus(v){
+  return `<span class="badge status">${esc(v || "Unknown")}</span>`;
+}
+function empty(msg){
+  return `<div class="empty">${msg}</div>`;
+}
+function impactCard(item){
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            <span>${esc(item.impact_type || "")}</span>
+            <span>${esc(item.audience || "")}</span>
+            <span>Updated: ${esc(fmtDate(item.updated_at))}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${badgeSeverity(item.severity)}${badgeStatus(item.status)}</div>
+      </div>
+      <div class="body">${esc(item.member_impact || item.summary || "No summary provided")}</div>
+    </div>
+  `;
+}
+function simpleCard(item, extra=""){
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="card-title">${esc(item.title)}</div>
+          <div class="meta">
+            <span>${esc(item.system)}</span>
+            ${extra}
+          </div>
+        </div>
+        ${item.status ? badgeStatus(item.status) : item.stage ? badgeStatus(item.stage) : ""}
+      </div>
+      <div class="body">${esc(item.summary || item.sum || "No summary provided")}</div>
+    </div>
+  `;
+}
+
+async function load(){
+  const [impactsRes, maintenanceRes, enhancementsRes, releasesRes] = await Promise.all([
+    sb.from("service_impacts").select("*").order("updated_at",{ascending:false}).limit(10),
+    sb.from("maintenance").select("*").order("updated_at",{ascending:false}).limit(10),
+    sb.from("enhancements").select("*").order("updated_at",{ascending:false}).limit(10),
+    sb.from("releases").select("*").order("updated_at",{ascending:false}).limit(10)
+  ]);
+
+  const impacts = sortImpacts((impactsRes.data || []).filter(isActive).filter(x => !["Resolved","Closed"].includes(x.status))).slice(0,5);
+  const maintenance = (maintenanceRes.data || []).filter(isActive).filter(x => x.status !== "Complete").slice(0,5);
+  const enhancements = (enhancementsRes.data || []).filter(isActive).filter(x => !["Archived","Complete"].includes(x.stage)).slice(0,5);
+  const releases = (releasesRes.data || []).filter(isActive).filter(x => x.status !== "Archived").slice(0,5);
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="k">Active Service Impacts</div><div class="v">${impacts.length}</div></div>
+    <div class="stat"><div class="k">Active Maintenance</div><div class="v">${maintenance.length}</div></div>
+    <div class="stat"><div class="k">Open Enhancements</div><div class="v">${enhancements.length}</div></div>
+    <div class="stat"><div class="k">Open Releases</div><div class="v">${releases.length}</div></div>
+  `;
+
+  document.getElementById("impacts").innerHTML = impacts.map(impactCard).join("") || empty("No active service impacts.");
+  document.getElementById("maintenance").innerHTML = maintenance.map(item => simpleCard(item, `<span>${esc(item.start_at ? fmtDate(item.start_at) : "")}</span>`)).join("") || empty("No active maintenance.");
+  document.getElementById("enhancements").innerHTML = enhancements.map(item => simpleCard(item, `<span>${esc(item.timing || "")}</span>`)).join("") || empty("No open enhancements.");
+  document.getElementById("releases").innerHTML = releases.map(item => simpleCard(item, `<span>${esc(item.target_date ? fmtDate(item.target_date) : "")}</span>`)).join("") || empty("No open releases.");
+
+  document.getElementById("updatedText").textContent = `Last refreshed: ${new Date().toLocaleString()}`;
+}
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
