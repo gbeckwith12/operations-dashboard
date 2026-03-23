@@ -58,7 +58,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function loadData() {
-  const { data, error } = await sb.from('systems').select('*');
+  const { data, error } = await sb.from('systems').select('*').order('name');
 
   if (error) {
     console.error(error);
@@ -68,21 +68,22 @@ async function loadData() {
 
   let html = "";
 
-  data.forEach(s => {
-    html += `
-      <div class="card">
-        <strong>${s.name}</strong><br>
-        Status: ${s.status || 'Active'}
-      </div>
-    `;
-  });
+  if (!data || data.length === 0) {
+    html = "<div class='card'>No systems found</div>";
+  } else {
+    data.forEach(s => {
+      html += `
+        <div class="card">
+          <div style="font-size:18px;">
+            ${s.icon || '⚙️'} <strong>${s.name}</strong>
+          </div>
+          <div style="margin-top:6px;color:#666;">
+            Status: ${s.status || 'Active'}
+          </div>
+        </div>
+      `;
+    });
+  }
 
   document.getElementById("systems").innerHTML = html;
 }
-
-loadData();
-
-</script>
-
-</body>
-</html>
