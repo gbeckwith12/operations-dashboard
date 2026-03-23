@@ -1,100 +1,88 @@
--- SYSTEMS
-alter table public.systems
-add column if not exists icon text,
-add column if not exists created_at timestamptz default now(),
-add column if not exists updated_at timestamptz default now();
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mission Control</title>
 
--- SERVICE IMPACTS
-create table if not exists public.service_impacts (
-  id text primary key,
-  system text not null,
-  title text not null,
-  impact_type text,
-  severity text,
-  status text,
-  owner text,
-  audience text,
-  publish_externally boolean default false,
-  member_impact text,
-  internal_impact text,
-  summary text,
-  source_type text,
-  source_detail text,
-  started_at timestamptz,
-  resolved_at timestamptz,
-  deactivate_at timestamptz,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
--- MAINTENANCE
-create table if not exists public.maintenance (
-  id text primary key,
-  system text not null,
-  title text not null,
-  status text,
-  owner text,
-  start_at timestamptz,
-  end_at timestamptz,
-  deactivate_at timestamptz,
-  summary text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+<style>
+body { font-family: Arial; background:#f5f7fb; margin:0; }
+.sidebar { width:220px; background:#172a53; color:white; height:100vh; position:fixed; padding:20px; }
+.main { margin-left:240px; padding:20px; }
 
--- ENHANCEMENTS
-create table if not exists public.enhancements (
-  id text primary key,
-  system text not null,
-  title text not null,
-  stage text,
-  dept text,
-  aud text,
-  timing text,
-  sum text,
-  impact text,
-  deactivate_at timestamptz,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+.logo { width:160px; margin-bottom:20px; }
 
--- RELEASES
-create table if not exists public.releases (
-  id text primary key,
-  system text not null,
-  title text not null,
-  status text,
-  target_date timestamptz,
-  deactivate_at timestamptz,
-  summary text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+.card {
+  background:white;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:15px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
 
--- ENABLE RLS
-alter table public.systems enable row level security;
-alter table public.service_impacts enable row level security;
-alter table public.maintenance enable row level security;
-alter table public.enhancements enable row level security;
-alter table public.releases enable row level security;
+button {
+  background:#c6a257;
+  color:white;
+  border:none;
+  padding:10px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+</style>
 
--- POLICIES
-create policy if not exists "read systems"
-on public.systems for select
-to anon using (true);
+</head>
 
-create policy if not exists "read impacts"
-on public.service_impacts for select
-to anon using (true);
+<body>
 
-create policy if not exists "read maintenance"
-on public.maintenance for select
-to anon using (true);
+<div class="sidebar">
+  <img src="https://i.imgur.com/Z6X7Z6F.png" class="logo">
+  <div>Mission Control</div>
+</div>
 
-create policy if not exists "read enhancements"
-on public.enhancements for select
-to anon using (true);
+<div class="main">
 
-create policy if not exists "read releases"
-on public.releases for select
-to anon using (true);
+<h1>Mission Control</h1>
+
+<button onclick="loadData()">Refresh</button>
+
+<div id="systems"></div>
+
+</div>
+
+<script>
+
+const SUPABASE_URL = "https://tqshcfqxypyppaykwdaf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc2hjZnF4eXB5cHBheWt3ZGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjY1MzYsImV4cCI6MjA4OTI0MjUzNn0.h7_C_oXZ6eKzbnMrInWqbJ635m-eQvD4zZzUVPQuxZsY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function loadData() {
+  const { data, error } = await sb.from('systems').select('*');
+
+  if (error) {
+    console.error(error);
+    alert("Supabase error");
+    return;
+  }
+
+  let html = "";
+
+  data.forEach(s => {
+    html += `
+      <div class="card">
+        <strong>${s.name}</strong><br>
+        Status: ${s.status || 'Active'}
+      </div>
+    `;
+  });
+
+  document.getElementById("systems").innerHTML = html;
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>
