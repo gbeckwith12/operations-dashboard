@@ -1,1 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mission Control</title>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body { font-family: Arial; background:#f5f7fb; margin:0; }
+.sidebar { width:220px; background:#172a53; color:white; height:100vh; position:fixed; padding:20px; }
+.main { margin-left:240px; padding:20px; }
+
+.logo { width:160px; margin-bottom:20px; }
+
+.card {
+  background:white;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:15px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+button {
+  background:#c6a257;
+  color:white;
+  border:none;
+  padding:10px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+  <img src="https://i.imgur.com/Z6X7Z6F.png" class="logo">
+  <div>Mission Control</div>
+</div>
+
+<div class="main">
+
+<h1>Mission Control</h1>
+
+<button onclick="loadData()">Refresh</button>
+
+<div id="systems"></div>
+
+</div>
+
+<script>
+
+const SUPABASE_URL = "https://tqshcfqxypyppaykwdaf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxc2hjZnF4eXB5cHBheWt3ZGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjY1MzYsImV4cCI6MjA4OTI0MjUzNn0.h7_C_oXZ6eKzbnMrInWqbJ635m-eQvD4zZzUVPQuxZsY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function loadData() {
+  const { data, error } = await sb.from('systems').select('*');
+
+  if (error) {
+    console.error(error);
+    alert("Supabase error");
+    return;
+  }
+
+  let html = "";
+
+  data.forEach(s => {
+    html += `
+      <div class="card">
+        <strong>${s.name}</strong><br>
+        Status: ${s.status || 'Active'}
+      </div>
+    `;
+  });
+
+  document.getElementById("systems").innerHTML = html;
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>
